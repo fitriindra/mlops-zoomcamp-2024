@@ -1,4 +1,5 @@
 w01-introduction/.ipynb_checkpoints/homework-checkpoint.ipynb
 w02-experiment-tracking/mlruns
 w02-experiment-tracking/mlflow.db
+w02-experiment-tracking/artifacts
 .vscode/settings.json
