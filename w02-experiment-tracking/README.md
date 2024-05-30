@@ -9,6 +9,8 @@
 
 Experiment tracking keeps track of all the relevant information from an ML experiment, such as: code, environment, data, model, hyperparameters, metrics, and other logs. The experiment tracking is important because of: reproducibility, organization, and optimization.
 
+Manual tracking experiment, e.g: using spreadsheets is not enough because of prone to error, no standard format, and no visibility and collaboration among team members.
+
 ## 2.2. Getting Started with MLflow
 
 ## 2.3. Experiment Tracking with MLflow
