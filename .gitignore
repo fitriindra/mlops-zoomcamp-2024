@@ -1,2 +1,4 @@
 w01-introduction/.ipynb_checkpoints/homework-checkpoint.ipynb
+w02-experiment-tracking/mlruns
+w02-experiment-tracking/mlflow.db
 .vscode/settings.json
