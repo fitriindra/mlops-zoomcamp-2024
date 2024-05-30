@@ -7,6 +7,9 @@
 - Run artifatcsL any file that is associated with an ML run
 - Experiment metadata
 
+Experiment tracking keeps track of all the relevant information from an ML experiment, such as: code, environment, data, model, hyperparameters, metrics, and other logs.
+
+Experiment tracking is important because of: reproducibility, organization, and optimization.
 
 ## 2.2. Getting Started with MLflow
 
