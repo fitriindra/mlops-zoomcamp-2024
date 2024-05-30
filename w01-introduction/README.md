@@ -10,6 +10,9 @@ MLOps is a set of practices for automating everything that needs to be done in a
 
 ## 1.2. Environment preparation
 
+There are several options to configure the environment. In this section we will try to use three different kind of setup: using Github Codespaces, AWS and Google Cloud
+
+
 ### Configuring Environment with Github Codespaces
 
 1. Open github and create/open repository
@@ -29,7 +32,11 @@ MLOps is a set of practices for automating everything that needs to be done in a
 
     <img src="assets/codespace.png" width="200">
 
+### Configuring Environment in AWS
 
+1. Open AWS console and create an EC2 instance
+2. Click `Launch Instance` button to enable the instance
+3. 
 
 ## 1.3. (Optional) Training a ride duration prediction model
 
