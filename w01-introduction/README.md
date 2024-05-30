@@ -37,3 +37,4 @@ MLOps is a set of practices for automating everything that needs to be done in a
 
 ## 1.5. MLOps maturity model
 # Homework
+[homework solution](homework.ipynb)
