@@ -88,12 +88,102 @@ There are several options to configure the environment. In this section we will 
 ## 1.3. (Optional) Training a ride duration prediction model
 
 ### Reading Parquet files instead of CSV
-05/13/3022 all of the data in [NY Taxi Trip](https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page) will be stored in the Parquet format.
+Since 05/13/3022 all of the data in [NY Taxi Trip](https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page) will be stored in the Parquet format.
 1. Download the data `wget <data URL>`
 2. Start the jupyter notebook. Use  `pd.read_parquet()`. Install `pyarrow` or `fastparquet` to use the function.
 
 ### Training a ride duration prediction model
 
+- Data can be downloaded from [NY Taxi Trip](https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page) and the metadata can be seen in [Yellow Taxi Trip Metadata](https://www.nyc.gov/assets/tlc/downloads/pdf/data_dictionary_trip_records_yellow.pdf) and [Green Taxi Trip Metadata](https://www.nyc.gov/assets/tlc/downloads/pdf/data_dictionary_trip_records_green.pdf). 
+- Filtering the data
+   
+   example: `df = df[df.trip_type == 2]` will filter green taxi data with `Dispatch` type (see [Green Taxi Trip Metadata](https://www.nyc.gov/assets/tlc/downloads/pdf/data_dictionary_trip_records_green.pdf))
+- To calculate the duration for the taxi trip we can use:
+    ```
+    #convert into datetime value
+    df.lpep_dropoff_datetime = pd.to_datetime(df.lpep_dropoff_datetime)
+    df.lpep_pickup_datetime = pd.to_datetime(df.lpep_pickup_datetime)
+
+
+    #calculate the duration (the result will be in x days HH:MM:ss format)
+    df['duration'] = df.lpep_dropoff_datetime - df.lpep_pickup_datetime
+
+    #change the format into minutes
+    df.duration = df.duration.apply(lambda td: td.total_seconds()/60)
+
+    ```
+
+- checking the data distribution
+
+    ```
+    import seaborn as sns
+    import matplotlib.pyplot as plt
+
+    sns.distplot(df.duration)
+    ```
+    <img src="assets/distplot.png" width="400">
+
+    or we can use: `df.duration.describe()`
+
+    <img src="assets/describe.png" width="200">
+
+    look at the percentile, e.g: `df.duration.describe(percentiles=[0.95, 0.98, 0.99])`
+
+    <img src="assets/percentile.png" width="200">
+
+    Most of the data is between 1 minute and less than 1 hour so we can use extra filtering to include only these data points.
+
+    `df = df[(df.duration >= 1 ) & df.duration <= 60]`
+- Next we perform feature selection and divide into categorical and numerical column
+    ```
+    categorical = ['PULocationID', 'DOLocationID']
+    numerical = ['trip_distance']
+    ```
+    for now we only use these three columns, but in real use case we might want to use another column(s).
+
+- Perform One-Hot-Encoding for the categorical columns.
+
+    ```
+    from sklearn.feature_extraction import DictVectorizer
+    
+    df[categorical] = df[categorical].astype(str)
+
+    train_dicts = df[categorical + numerical].to_dict(orient='records')
+
+    dv = DictVectorizer()
+    X_train = dv.fit_transform(train_dicts)
+    ```
+- specify `target` column which is `duration` because we want to predict the trip duration
+    ```
+    target = 'duration'
+    y_train = df[target].value
+    ```
+
+- train model using `Linear Regression`
+    ```
+    from sklearn.linear_model import LinearRegression
+
+    lr = LinearRegression()
+    lr.fit(X_train, y_train)
+
+    y_pred = lr.predict(X_train)
+    ```
+- Visualize the prediction and actual result
+    ```
+    sns.distplot(y_pred, label='prediction')
+    sns.distplot(y_train, label='actual')
+
+    plt.legend()
+    ```
+
+    <img src="assets/pred-distplot.png" width="300">
+
+- calculate the RMSE. Note: the old `mean_squared_error` is deprecated, so we will use `root_mean_squared_erro`r instead
+    ```
+    from sklearn.metrics import root_mean_squared_error
+
+    rmse_val = root_mean_squared_error(y_train, y_pred)
+    ```
 ## 1.4. Course overview
 
 ## 1.5. MLOps maturity model
