@@ -36,9 +36,63 @@ There are several options to configure the environment. In this section we will 
 
 1. Open AWS console and create an EC2 instance
 2. Click `Launch Instance` button to enable the instance
-3. 
+3. Choose the OS & architecture, instance type (choose minimum t2.large for ML applications), select or create key pair, configure storage and leave the rest of the options as default.
+4. Use the public IP and connect to the server. 
+
+    `ssh -i ~/.ssh/<key filename>.pem ubuntu@<public IP address>`
+    
+    to save the connection, edit the file `.ssh/config`
+    ```
+    Host mlops-zoomcamp
+        HostName <public IP Address>
+        User <username>
+        IdentityFile c:/Users/Fitri/.ssh/gpc
+        StrictHostKeyChecking no
+    ```
+
+    to connect just type `ssh mlops-zoomcamp` instead of the previous one
+5. Download Anaconda and install into the server
+
+    `wget <Anaconda installation file URL>`
+    
+    `bash <Anaconda filename>.sh`
+6. Install Docker
+
+    `sudo update`
+
+    `sudo apt install docker.io`
+7. Install the latest Docker compose from https://github.com/docker/compose/releases
+
+    `wget <Docker compose URL> -O docker-compose`
+
+    make the file executable: `chmod +x docker-compose`
+8. To access the Docker compose from anywhere, edit `.bashrc` file
+
+    `export PATH="${HOME}/<docker-compose location>:${PATH}"`
+
+    execute the file  `source .bashrc` and then
+    check using `which docker-compose`
+
+    at first we need to use `sudo` to run docker, but if we want to use docker without `sudo`, run: 
+    `sudo groupadd docker` and `sudo usermod -aG docker $USER`.
+     Logout and the login again to the server
+
+9. Open VSCode and install Remote - SSH extensions
+10. Open remote window and connect to the server. After the VSCode is connected, click Open Folder to open the repository folder
+11. Use port-forwarding to connect server into our local machine. Click Ports tab inside VSCode (on the right side of Terminal window)
+    ![port-forwarding](assets/port-forwarding.png)
+
+    Now you can use jupyter notebook from your local machine `localhost:8888`
+
 
 ## 1.3. (Optional) Training a ride duration prediction model
+
+### Reading Parquet files instead of CSV
+05/13/3022 all of the data in [NY Taxi Trip](https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page) will be stored in the Parquet format.
+1. Download the data `wget <data URL>`
+2. Start the jupyter notebook. Use  `pd.read_parquet()`. Install `pyarrow` or `fastparquet` to use the function.
+
+### Training a ride duration prediction model
 
 ## 1.4. Course overview
 
