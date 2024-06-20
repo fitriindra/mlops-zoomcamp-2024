@@ -153,8 +153,10 @@ loaded_model.predict(<dataframe>)
 After training a few models, we can store model in model registry. Once the model is registered in model registry the engineer in charge of deploying the model can inspect the models and see the informations related to the model, such as model size, hyperparameters, performance, etc. 
 
 To register model, we can click the Register Model button inside the artifacts section. We can select the model registry name or create a new one. 
+
 ![register](assets/register-model.png)
 The registered model can be viewed in Model menu inside MLflow.
+
 ![registry](assets/registry.png)
 
 > In earlier version of MLflow we can change the stage of the model, however since the MLflow 2.9.0 version the Model Stage is deprecated and will be removed in a future major release. For more information: https://mlflow.org/docs/latest/model-registry.html#id21
