@@ -280,8 +280,151 @@ Orchestration is important because we need scheduling for running the experiment
 
 ### Build Training Set
 
-### Data Validations using Built-in Testing Framework
+#### Build Encoders
+1. Add new encoder file under `utils/data_preparation` folder
+2. Add the encoder code
+    ```
+    from typing import Dict, List, Optional, Tuple
+    import pandas as pd
+    import scipy
+    from sklearn.feature_extraction import DictVectorizer
 
+    def vectorize_features(
+        training_set: pd.DataFrame,
+        validation_set: Optional[pd.DataFrame] = None,
+    ) -> Tuple[scipy.sparse.csr_matrix, scipy.sparse.csr_matrix, DictVectorizer]:
+        dv = DictVectorizer()
+
+        train_dicts = training_set.to_dict(orient='records')
+        X_train = dv.fit_transform(train_dicts)
+
+        X_val = None
+        if validation_set is not None:
+            val_dicts = validation_set[training_set.columns].to_dict(orient='records')
+            X_val = dv.transform(val_dicts)
+
+        return X_train, X_val, dv
+    ```
+4. Add new data exporter block: All Block --> Data Exporter --> Base template (generic)
+
+    ![exporter](assets/new-exporter.png)
+5. Give a name to the exporter block
+
+    ![exporter-name](assets/exporter-name.png)
+6. Add exporter code
+    ```
+    from typing import List, Tuple
+    from pandas import DataFrame, Series
+    from scipy.sparse._csr import csr_matrix
+    from sklearn.base import BaseEstimator
+    from mlops.utils.data_preparation.encoders import vectorize_features
+    from mlops.utils.data_preparation.feature_selector import select_features
+
+    if 'data_exporter' not in globals():
+        from mage_ai.data_preparation.decorators import data_exporter
+    if 'test' not in globals():
+        from mage_ai.data_preparation.decorators import test
+
+    @data_exporter
+    def export(
+        data: Tuple[DataFrame, DataFrame, DataFrame], *args, **kwargs
+    ) -> Tuple[
+        csr_matrix,
+        csr_matrix,
+        csr_matrix,
+        Series,
+        Series,
+        Series,
+        BaseEstimator,
+    ]:
+        df, df_train, df_val = data
+        target = kwargs.get('target', 'duration')
+
+        X, _, _ = vectorize_features(select_features(df))
+        y: Series = df[target]
+
+        X_train, X_val, dv = vectorize_features(
+            select_features(df_train),
+            select_features(df_val),
+        )
+        y_train = df_train[target]
+        y_val = df_val[target]
+
+        return X, X_train, X_val, y, y_train, y_val, dv
+    ```
+    This code vectorizes, select and combining the features and produce several outputs for our training pipeline.
+
+### Data Validations using Built-in Testing Framework
+1. We are adding test to verify the shape of our data. Add this below the previous code in the exporter block.
+    ```
+    @test
+    def test_dataset(
+        X: csr_matrix,
+        X_train: csr_matrix,
+        X_val: csr_matrix,
+        y: Series,
+        y_train: Series,
+        y_val: Series,
+        *args,
+    ) -> None:
+        assert (
+            X.shape[0] == 105870
+        ), f'Entire dataset should have 105870 examples, but has {X.shape[0]}'
+        assert (
+            X.shape[1] == 7027
+        ), f'Entire dataset should have 7027 features, but has {X.shape[1]}'
+        assert (
+            len(y.index) == X.shape[0]
+        ), f'Entire dataset should have {X.shape[0]} examples, but has {len(y.index)}'
+    ```
+    Run the code and make sure that the test pass `1/1 tests passed.`
+2. Next, we add the test for our validation data. Add this code below the previous test code
+    ```
+    @test
+    def test_training_set(
+        X: csr_matrix,
+        X_train: csr_matrix,
+        X_val: csr_matrix,
+        y: Series,
+        y_train: Series,
+        y_val: Series,
+        *args,
+    ) -> None:
+        assert (
+            X_train.shape[0] == 54378
+        ), f'Training set for training model should have 54378 examples, but has {X_train.shape[0]}'
+        assert (
+            X_train.shape[1] == 5094
+        ), f'Training set for training model should have 5094 features, but has {X_train.shape[1]}'
+        assert (
+            len(y_train.index) == X_train.shape[0]
+        ), f'Training set for training model should have {X_train.shape[0]} examples, but has {len(y_train.index)}'
+    ```
+    Run the code and make sure that the test pass `2/2 tests passed.`
+3. Lastly, we add the test for our test data. Add this code below the previous test code
+    ```
+    @test
+    def test_validation_set(
+        X: csr_matrix,
+        X_train: csr_matrix,
+        X_val: csr_matrix,
+        y: Series,
+        y_train: Series,
+        y_val: Series,
+        *args,
+    ) -> None:
+        assert (
+            X_val.shape[0] == 51492
+        ), f'Training set for validation should have 51492 examples, but has {X_val.shape[0]}'
+        assert (
+            X_val.shape[1] == 5094
+        ), f'Training set for validation should have 5094 features, but has {X_val.shape[1]}'
+        assert (
+            len(y_val.index) == X_val.shape[0]
+        ), f'Training set for training model should have {X_val.shape[0]} examples, but has {len(y_val.index)}'
+    ```
+    Run the code and make sure that the test pass `3/3 tests passed.`
+    
 ## 3.3. Training: sklearn models and XGBoost
 - GDP Training Set
 - Sklearn training GDP
