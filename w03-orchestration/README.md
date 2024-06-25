@@ -74,15 +74,209 @@ Orchestration is important because we need scheduling for running the experiment
 4. Create New Pipeline -> Standard pipeline
 
     ![new-pipeline](assets/mage-new-pipeline.png)
-    
+
     give a name and description to the new pipeline
 
     ![name-pipeline](assets/mage-name-pipeline.png)
 ### Data Ingestion
+1. Add new block: All Blocks --> Data loader -> Base template (generic)
+    
+    ![new-block](assets/new-ingest.png)
+2. Give a name to the ingest block
 
-### Utility Helper Function
+    ![ingest-block](assets/ingest-block.png)
+3. After the text editor for the newly created block appears, enter this code for ingesting data:
+
+    ```
+    import requests
+    from io import BytesIO
+    from typing import List
+
+    import pandas as pd
+
+    if 'data_loader' not in globals():
+        from mage_ai.data_preparation.decorators import data_loader
+
+
+    @data_loader
+    def ingest_files(**kwargs) -> pd.DataFrame:
+        dfs: List[pd.DataFrame] = []
+
+        for year, months in [(2024, (1, 3))]:
+            for i in range(*months):
+                response = requests.get(
+                    'https://github.com/mage-ai/datasets/raw/master/taxi/green'
+                    f'/{year}/{i:02d}.parquet'
+                )
+
+                if response.status_code != 200:
+                    raise Exception(response.text)
+
+                df = pd.read_parquet(BytesIO(response.content))
+                dfs.append(df)
+
+        return pd.concat(dfs)
+    ```
+4. Run the code
+
+    ![ingest-code](assets/ingest-code.png)
+5. To display chart, click Chart button and add the chart type.
+    
+    ![ingest-chart](assets/ingest-chart.png)
+    > If the chart is not displayed, add `df['lpep_pickup_datetime_cleaned'] = df['lpep_pickup_datetime'].astype(np.int64) // 10**9` before `dfs.append(df)`. Do not forget to import `numpy` library.
+    
+    Add another chart:
+
+    ![ingest-chart](assets/ingest-chart2.png)
 
 ### Data Preparation
+#### Utility Helper Function
+1. Add utility codes into one folder, called `utils`. These codes will be used for data transformation.
+    ![utils](assets/utility-function.png)
+2. Add `cleaning.py`
+    ```
+    import pandas as pd
+
+    def clean(
+        df: pd.DataFrame,
+        include_extreme_durations: bool = False,
+    ) -> pd.DataFrame:
+        # Convert pickup and dropoff datetime columns to datetime type
+        df.lpep_dropoff_datetime = pd.to_datetime(df.lpep_dropoff_datetime)
+        df.lpep_pickup_datetime = pd.to_datetime(df.lpep_pickup_datetime)
+
+        # Calculate the trip duration in minutes
+        df['duration'] = df.lpep_dropoff_datetime - df.lpep_pickup_datetime
+        df.duration = df.duration.apply(lambda td: td.total_seconds() / 60)
+
+        if not include_extreme_durations:
+            # Filter out trips that are less than 1 minute or more than 60 minutes
+            df = df[(df.duration >= 1) & (df.duration <= 60)]
+
+        # Convert location IDs to string to treat them as categorical features
+        categorical = ['PULocationID', 'DOLocationID']
+        df[categorical] = df[categorical].astype(str)
+
+        return df
+    ```
+3. Add `feature_engineering.py`
+    ```
+    from typing import Dict, List, Union
+    from pandas import DataFrame
+
+    def combine_features(df: Union[List[Dict], DataFrame]) -> Union[List[Dict], DataFrame]:
+        if isinstance(df, DataFrame):
+            df['PU_DO'] = df['PULocationID'].astype(str) + '_' + df['DOLocationID'].astype(str)
+        elif isinstance(df, list) and len(df) >= 1 and isinstance(df[0], dict):
+            arr = []
+            for row in df:
+                row['PU_DO'] = str(row['PULocationID']) + '_' + str(row['DOLocationID'])
+                arr.append(row)
+            return arr
+        return df
+
+    ```
+4. Add `feature_selector.py`
+    ```
+    from typing import List, Optional
+    import pandas as pd
+
+    CATEGORICAL_FEATURES = ['PU_DO']
+    NUMERICAL_FEATURES = ['trip_distance']
+
+    def select_features(df: pd.DataFrame, features: Optional[List[str]] = None) -> pd.DataFrame:
+        columns = CATEGORICAL_FEATURES + NUMERICAL_FEATURES
+        if features:
+            columns += features
+
+        return df[columns]
+    ```
+5. Add `splitters.py`
+    ```
+    from typing import List, Tuple, Union
+    from pandas import DataFrame, Index
+
+    def split_on_value(
+        df: DataFrame,
+        feature: str,
+        value: Union[float, int, str],
+        drop_feature: bool = True,
+        return_indexes: bool = False,
+    ) -> Union[Tuple[DataFrame, DataFrame], Tuple[Index, Index]]:
+        df_train = df[df[feature] < value]
+        df_val = df[df[feature] >= value]
+
+        if return_indexes:
+            return df_train.index, df_val.index
+
+        if drop_feature:
+            df_train = df_train.drop(columns=[feature])
+            df_val = df_val.drop(columns=[feature])
+
+        return df_train, df_val
+    ```
+
+#### Data Transformation
+1. Add new transformer block: All Blocks --> Transformer --> Base template (generic)
+
+    ![new-transformer](assets/new-transformer.png)
+
+2. Give a name the the newly created transformer block
+
+    ![transformer-name](assets/transformer-name.png)
+
+3. Add the transformer code
+    ```
+    from typing import Tuple
+    import pandas as pd
+    from mlops.utils.data_preparation.cleaning import clean
+    from mlops.utils.data_preparation.feature_engineering import combine_features
+    from mlops.utils.data_preparation.feature_selector import select_features
+    from mlops.utils.data_preparation.splitters import split_on_value
+
+    if 'transformer' not in globals():
+        from mage_ai.data_preparation.decorators import transformer
+
+    @transformer
+    def transform(
+        df: pd.DataFrame, **kwargs
+    ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+        split_on_feature = kwargs.get('split_on_feature')
+        split_on_feature_value = kwargs.get('split_on_feature_value')
+        target = kwargs.get('target')
+
+        df = clean(df)
+        df = combine_features(df)
+        df = select_features(df, features=[split_on_feature, target])
+
+        df_train, df_val = split_on_value(
+            df,
+            split_on_feature,
+            split_on_feature_value,
+        )
+
+        return df, df_train, df_val
+    ```
+4. Add some new variable to control the bahaviour if we wanted to reuse the pipeline for another dataset.
+
+    ![transformer-var](assets/transformer-var.png)
+    Set the default value  `split_on_feature` into `lpep_pickup_datetime`, `split_on_feature_value` into `2024-02-01` and `target` into `duration` column.
+5. Run the code
+
+#### Data Visualization
+1. Add histogram chart to visualize the distribution
+
+    ![histogram](assets/transformer-hist.png)
+
+2. Modify the last two lines in histogram code:
+    ```
+    col = 'trip_distance'
+    x = df_1[df_1[col] <= 20][col]
+    ```
+
+    ![histogram-code](assets/transformer-hist-code.png)
+
+    ![hist-bucket](assets/transformer-hist-bucket.png)
 
 ### Build Training Set
 
